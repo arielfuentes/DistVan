@@ -18,13 +18,21 @@ Aeropuerto <- tibble(ID = "Aeropuerto",
 
 viajes_lst <- group_split(viajes, ID)
 
- 
-pt_dt <- if (unique(viajes_lst[[20]]$Itinerario) == "RECOGIDA") {
-  bind_rows(viajes_lst[[20]], Aeropuerto) %>%
+dt_lst <- lapply(viajes_lst, function(x) if (unique(x$Itinerario)  == "RECOGIDA") {
+  bind_rows(x, Aeropuerto) %>%
     st_as_sf(coords = c("x", "y"), crs = 4326) %>%
     st_transform(32719)
 } else {
-  bind_rows(Aeropuerto, viajes_lst[[20]]) %>%
+  bind_rows(Aeropuerto, x) %>%
+    st_as_sf(coords = c("x", "y"), crs = 4326) %>%
+    st_transform(32719)
+}) 
+pt_dt <- if (unique(viajes_lst[[1]]$Itinerario) == "RECOGIDA") {
+  bind_rows(viajes_lst[[1]], Aeropuerto) %>%
+    st_as_sf(coords = c("x", "y"), crs = 4326) %>%
+    st_transform(32719)
+} else {
+  bind_rows(Aeropuerto, viajes_lst[[1]]) %>%
     st_as_sf(coords = c("x", "y"), crs = 4326) %>%
     st_transform(32719)
 }  
@@ -36,7 +44,7 @@ vial <- st_read("data/redvial/Capas_Base.shp") %>%
   filter(!CLASE_URBA %in% c("PRIVADO") & REGION == 13)
 
 vial2 <- st_filter(vial, 
-                   st_convex_hull(x = st_union(pt_dt)), 
+                   st_buffer(st_convex_hull(x = st_union(pt_dt)), 5000), 
                    .predicate = st_intersects)
 
 vial2 <- vial2 %>%
