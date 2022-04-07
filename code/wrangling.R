@@ -28,15 +28,15 @@ dt_lst <- lapply(viajes_lst, function(x) if (unique(x$Itinerario)  == "RECOGIDA"
     st_as_sf(coords = c("x", "y"), crs = 4326) %>%
     st_transform(32719)
 }) 
-pt_dt <- if (unique(viajes_lst[[1]]$Itinerario) == "RECOGIDA") {
-  bind_rows(viajes_lst[[1]], Aeropuerto) %>%
-    st_as_sf(coords = c("x", "y"), crs = 4326) %>%
-    st_transform(32719)
-} else {
-  bind_rows(Aeropuerto, viajes_lst[[1]]) %>%
-    st_as_sf(coords = c("x", "y"), crs = 4326) %>%
-    st_transform(32719)
-}  
+# pt_dt <- if (unique(viajes_lst[[1]]$Itinerario) == "RECOGIDA") {
+#   bind_rows(viajes_lst[[1]], Aeropuerto) %>%
+#     st_as_sf(coords = c("x", "y"), crs = 4326) %>%
+#     st_transform(32719)
+# } else {
+#   bind_rows(Aeropuerto, viajes_lst[[1]]) %>%
+#     st_as_sf(coords = c("x", "y"), crs = 4326) %>%
+#     st_transform(32719)
+# }  
 pt_dt2 <- lapply(1:length(viajes_lst), 
                  function(x) if (unique(viajes_lst[[x]]$Itinerario) == "RECOGIDA") {
                    bind_rows(viajes_lst[[x]], Aeropuerto) %>%
@@ -92,12 +92,43 @@ vial_short <- bind_rows(vial_short1,
     tm_dots(col = "red", size = 2) +
       tm_shape(vial_short) +
       tm_lines()
+
+ID_vjs <- viajes_lst %>% bind_rows() %>% distinct(ID)        
+rm(dt_lst, viajes_lst)
+lapply(1:length(pt_dt2), function(z) lapply(1:nrow(pt_dt2[[z]])-1, 
+                                            function(y) tryCatch(st_filter(vial, 
+                                  st_buffer(st_convex_hull(x = st_union(pt_dt2[[z]])), 5000), 
+                                  .predicate = st_intersects) %>%
+         as_sfnetwork(directed = F) %>% 
+         activate("edges") %>%
+         mutate(weight = edge_length()) %>%
+           convert(to_spatial_shortest_paths,
+                   from = pt_dt2[[z]][y,], to = pt_dt2[[z]][y+1,]) %>%
+           st_as_sf() %>%
+           mutate(rt = z) %>%
+           group_by(rt) %>%
+           summarise(do_union = F)  %>%
+           # st_cast("LINESTRING")
+           mutate(distancia = st_length(.)) %>%
+           st_drop_geometry(), 
+         error = function(e) return(-1)
+         )
+         )
+       ) %>%
+  bind_rows(.) %>%
+  group_by(rt) %>%
+  summarise(distancia = sum(distancia)/1000) %>%
+  bind_cols(ID_vjs) %>%
+  readr::write_excel_csv("dist_rutas.csv")
     
 lapply(1:5, function(x) vialnet %>%
          convert(to_spatial_shortest_paths,
                  from = pt_dt[x,], to = pt_dt[x+1,]) %>%
          st_as_sf()) %>%
   bind_rows()
+lapply(pt_dt2, function(z)  st_filter(vial, 
+                                      st_buffer(st_convex_hull(x = st_union(z)), 5000), 
+                                      .predicate = st_intersects))
 lapply(pt_dt2, function(z) lapply(1:length(z) - 1, function(y) vialnet %>%
                                     convert(to_spatial_shortest_paths,
                                             from = pt_dt[y,], to = pt_dt[y+1,]) %>%
