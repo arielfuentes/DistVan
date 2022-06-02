@@ -15,4 +15,12 @@ rt %>%
   bind_cols(ID_vjs) %>%
   write_excel_csv2("output/rutas.csv")
   
-
+rt_codelco <- lapply(1:length(codelco_geo), 
+       function(x) st_drop_geometry(mb_optimized_route(select(codelco_geo[[x]], 
+                                                              -ID),
+                                                       roundtrip = F,
+                                                       profile = "driving-traffic")$route))
+rt_codelco %>%
+  bind_rows() %>%
+  bind_cols(read_excel("data/codelco_geo 1.xlsx", sheet = "Sheet 1")) %>%
+  write.xlsx("output/rutas_codelco.xlsx")
