@@ -13,4 +13,7 @@ rt <- lapply(1:length(sodex_reset_sf),
 
 rt_bind <- bind_rows(rt) %>%
   bind_cols(select(bind_rows(sodex_reset_lst), Origen, Destino)) %>%
-  as_tibble()
+  as_tibble() %>%
+  mutate(distance = distance/2, duration = duration/2)
+
+write_excel_csv(rt_bind, "output/dist_sodexo.csv")
